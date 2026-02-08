@@ -30,7 +30,7 @@ jobs:
           git push
 
       - name: Send email on change
-        if: always()
+        if: steps.check.outputs.changed == 'true'
         uses: hilarion5/send-mail@v1
         with:
           smtp-server: ${{ secrets.SMTP_SERVER }}
