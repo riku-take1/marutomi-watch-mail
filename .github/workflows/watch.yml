@@ -1,7 +1,50 @@
-name: test
-on: [workflow_dispatch]
+name: watch-marutomi-mail
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
 jobs:
-  test:
+  run:
     runs-on: ubuntu-latest
     steps:
-      - run: echo "hello"
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - run: pip install -r requirements.txt
+
+      - id: check
+        run: python check.py
+
+      - name: Commit state if changed
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.txt
+          git commit -m "update state" || exit 0
+          git push
+
+      - name: Send email on change
+        if: steps.check.outputs.changed == 'true'
+        uses: hilarion5/send-mail@v1
+        with:
+          smtp-server: ${{ secrets.SMTP_SERVER }}
+          smtp-port: ${{ secrets.SMTP_PORT }}
+          smtp-secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          from-email: ${{ secrets.MAIL_FROM }}
+          to-email: ${{ secrets.MAIL_TO }}
+          subject: "【更新検知】marutomi-fudousan.com"
+          body: |
+            更新を検知しました:
+            https://marutomi-fudousan.com/information.html
+
+            抜粋:
+            ${{ steps.check.outputs.snippet }}
+
